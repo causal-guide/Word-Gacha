@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Dictionary Gacha Search</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #111;
+    color: white;
+    overflow: hidden;
+  }
+  #gacha-container {
+    position: relative;
+    height: 100px;
+    overflow: hidden;
+    margin-top: 60px;
+    border-top: 2px solid #555;
+    border-bottom: 2px solid #555;
+  }
+  .word {
+    position: absolute;
+    top: 30px;
+    font-size: 32px;
+    white-space: nowrap;
+    opacity: 0.7;
+  }
+  #center-line {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background: red;
+  }
+  #controls {
+    margin-top: 20px;
+  }
+  button, select, input {
+    padding: 8px 12px;
+    margin: 5px;
+  }
+</style>
+</head>
+<body>
+
+<h2>🌐 Auto Dictionary Gacha Search</h2>
+
+<div>
+  Language: 
+  <select id="language">
+    <option value="en">English</option>
+    <option value="id">Indonesian</option>
+    <option value="es">Spanish</option>
+  </select>
+  Interval (seconds): 
+  <input type="number" id="interval" value="5" min="2" style="width:60px;">
+  <label><input type="checkbox" id="toggleAnim" checked> Enable Animation</label>
+</div>
+
+<div id="controls">
+  <button id="start">Start Auto Search</button>
+  <button id="stop">Stop</button>
+  <button id="skip">Skip</button>
+</div>
+
+<div id="gacha-container">
+  <div id="center-line"></div>
+</div>
+
+<script>
+const lexicons = {
+  en: "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt",
+  id: "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/id/id_50k.txt",
+  es: "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/es/es_50k.txt"
+};
+
+let words = [];
+let usedWords = new Set();
+let intervalId = null;
+let animationEnabled = true;
+
+const gachaContainer = document.getElementById("gacha-container");
+const languageSelect = document.getElementById("language");
+const toggleAnim = document.getElementById("toggleAnim");
+const skipBtn = document.getElementById("skip");
+
+toggleAnim.addEventListener("change", () => {
+  animationEnabled = toggleAnim.checked;
+});
+
+document.getElementById("start").addEventListener("click", async () => {
+  const lang = languageSelect.value;
+  if (words.length === 0 || currentLang !== lang) {
+    await loadWords(lang);
+  }
+  const intervalSec = parseInt(document.getElementById("interval").value) * 1000;
+  startAutoSearch(intervalSec);
+});
+
+document.getElementById("stop").addEventListener("click", stopAutoSearch);
+
+skipBtn.addEventListener("click", () => {
+  performSearch(randomWord());
+});
+
+let currentLang = null;
+async function loadWords(lang) {
+  const res = await fetch(lexicons[lang]);
+  const text = await res.text();
+  words = text.split("\n").map(w => w.trim()).filter(Boolean);
+  currentLang = lang;
+  usedWords.clear();
+  console.log(`Loaded ${words.length} ${lang} words`);
+}
+
+function randomWord() {
+  let word;
+  do {
+    word = words[Math.floor(Math.random() * words.length)];
+  } while (usedWords.has(word));
+  usedWords.add(word);
+  if (usedWords.size >= words.length) usedWords.clear(); // reset if all used
+  return word;
+}
+
+function startAutoSearch(interval) {
+  stopAutoSearch();
+  performSearch(randomWord());
+  intervalId = setInterval(() => {
+    performSearch(randomWord());
+  }, interval);
+}
+
+function stopAutoSearch() {
+  clearInterval(intervalId);
+}
+
+function performSearch(word) {
+  if (animationEnabled) {
+    playGachaAnimation(word, () => openBing(word));
+  } else {
+    openBing(word);
+  }
+}
+
+function playGachaAnimation(finalWord, callback) {
+  gachaContainer.innerHTML = '<div id="center-line"></div>';
+  const totalWords = 10;
+  let delay = 0;
+
+  for (let i = 0; i < totalWords; i++) {
+    const word = i === totalWords - 1 ? finalWord : randomWord();
+    const span = document.createElement("div");
+    span.className = "word";
+    span.textContent = word;
+    span.style.left = "-200px";
+    span.style.opacity = "0.8";
+    gachaContainer.appendChild(span);
+
+    setTimeout(() => {
+      const duration = 2000 + Math.random() * 1000;
+      const endX = window.innerWidth + 200;
+      span.animate([
+        { transform: `translateX(0px)` },
+        { transform: `translateX(${endX}px)` }
+      ], { duration, easing: "ease-out" });
+      setTimeout(() => {
+        span.remove();
+      }, duration);
+    }, delay);
+
+    delay += 200;
+  }
+
+  // Show selected word at center after last slide
+  setTimeout(() => {
+    const selected = document.createElement("div");
+    selected.className = "word";
+    selected.style.left = "50%";
+    selected.style.transform = "translateX(-50%)";
+    selected.style.color = "yellow";
+    selected.style.fontWeight = "bold";
+    selected.textContent = finalWord;
+    gachaContainer.appendChild(selected);
+
+    setTimeout(() => {
+      selected.remove();
+      callback();
+    }, 1000);
+  }, delay + 1500);
+}
+
+function openBing(word) {
+  window.open(`https://www.bing.com/search?q=${encodeURIComponent(word)}`, "_blank");
+}
+</script>
+
+</body>
+</html>
